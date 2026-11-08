@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OTScope — Análisis OT/ICS</title>
+<style>
+  :root{
+    --bg:#070b10; --panel:#0e141c; --panel2:#121a24; --line:#1e2a38;
+    --tx:#e6edf5; --dim:#8696aa; --teal:#00d4a4;
+    --critica:#e0409f; --alta:#ef4444; --media:#f5a623; --baja:#22d3ee; --info:#8696aa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 600px at 50% -10%,#0c1a1f,#070b10 55%);color:var(--tx);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;padding:34px 20px 60px}
+  .wrap{max-width:980px;margin:0 auto}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+  header svg{width:46px;height:46px;filter:drop-shadow(0 0 16px #00d4a455)}
+  header .t{font-size:30px;font-weight:900;letter-spacing:.5px}
+  header .t b{color:var(--teal)}
+  .sub{color:var(--dim);font-size:15px;margin:2px 0 26px 62px}
+  .sub b{color:var(--teal);font-weight:700}
+
+  .drop{border:2px dashed #27384a;border-radius:18px;background:var(--panel);
+    padding:54px 24px;text-align:center;cursor:pointer;transition:.18s}
+  .drop:hover,.drop.over{border-color:var(--teal);background:#0c141b;box-shadow:0 0 0 4px #00d4a41a inset}
+  .drop .ic{font-size:46px}
+  .drop h2{font-size:21px;margin:12px 0 6px;font-weight:800}
+  .drop p{color:var(--dim);font-size:14px}
+  .drop .badge{display:inline-block;margin-top:16px;font-size:12px;color:var(--teal);
+    border:1px solid #16463c;background:#0b211c;border-radius:999px;padding:5px 14px;font-weight:700}
+
+  .hidden{display:none!important}
+  .loading{text-align:center;padding:60px 0;color:var(--dim)}
+  .spin{width:42px;height:42px;border:4px solid #1e2a38;border-top-color:var(--teal);
+    border-radius:50%;margin:0 auto 18px;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .err{background:#2a1013;border:1px solid #5b1e22;color:#ffb4b4;padding:16px 18px;border-radius:12px;margin-top:20px}
+
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:22px 0 6px}
+  .meta .fn{font-weight:800;font-size:18px}
+  .meta .mi{color:var(--dim);font-size:14px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-left:auto}
+  button.act{background:var(--teal);color:#042019;border:none;font-weight:800;font-size:14px;
+    padding:9px 16px;border-radius:10px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--tx);border:1px solid var(--line);
+    padding:9px 16px;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px}
+  button.act:hover{filter:brightness(1.08)} button.ghost:hover{border-color:var(--teal)}
+
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:18px 0}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 14px;text-align:center}
+  .tile .n{font-size:30px;font-weight:900;line-height:1}
+  .tile .l{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-top:7px;font-weight:700}
+  .tile.s-critica{border-color:#4a1536} .tile.s-critica .n{color:var(--critica)}
+  .tile.s-alta{border-color:#4a1d1d} .tile.s-alta .n{color:var(--alta)}
+  .tile.s-media{border-color:#4a3914} .tile.s-media .n{color:var(--media)}
+  .tile.s-baja{border-color:#164049} .tile.s-baja .n{color:var(--baja)}
+
+  .protos{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 22px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;
+    padding:6px 14px;font-size:13px;color:var(--dim);font-weight:700}
+  .chip b{color:var(--teal)}
+
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .filters button{background:var(--panel2);border:1px solid var(--line);color:var(--dim);
+    border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer;font-weight:700}
+  .filters button.on{color:#042019;background:var(--teal);border-color:var(--teal)}
+
+  h3.sec{font-size:15px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);
+    margin:26px 0 12px;font-weight:800}
+  .find{background:var(--panel);border:1px solid var(--line);border-left-width:5px;
+    border-radius:12px;padding:15px 18px;margin-bottom:11px}
+  .find.s-critica{border-left-color:var(--critica)} .find.s-alta{border-left-color:var(--alta)}
+  .find.s-media{border-left-color:var(--media)} .find.s-baja{border-left-color:var(--baja)}
+  .find.s-info{border-left-color:var(--info)}
+  .find .top{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+  .sev{font-size:11px;font-weight:900;letter-spacing:.5px;padding:3px 9px;border-radius:6px}
+  .sev.s-critica{background:#3a1029;color:var(--critica)} .sev.s-alta{background:#3a1515;color:var(--alta)}
+  .sev.s-media{background:#352a0f;color:var(--media)} .sev.s-baja{background:#0f3138;color:var(--baja)}
+  .sev.s-info{background:#1d2630;color:var(--info)}
+  .find .proto{font-weight:800} .find .title{font-weight:600}
+  .find .conv{color:var(--dim);font-size:13px;font-family:ui-monospace,monospace}
+  .find .cnt{color:var(--dim);font-size:12px;margin-left:auto}
+  .find .detail{color:var(--dim);font-size:14px;line-height:1.5;margin-top:8px}
+  .fix{margin-top:11px;background:#0b1620;border:1px solid #16323a;border-radius:10px;padding:11px 13px}
+  .fix .lbl{color:var(--teal);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+  .fix .txt{color:#c3d0dd;font-size:13.5px;line-height:1.5;margin-top:4px}
+  .refs{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  .refs span{font-size:11px;color:var(--dim);background:#111a24;border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  th,td{text-align:left;padding:9px 12px;font-size:14px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:1px}
+  td.ip{font-family:ui-monospace,monospace;color:var(--teal)}
+  footer{color:var(--dim);font-size:12px;text-align:center;margin-top:40px}
+  footer b{color:var(--teal)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg viewBox="0 0 48 48"><path d="M24 3 L41 10 V24 C41 34 33 42 24 45 C15 42 7 34 7 24 V10 Z" fill="#00d4a4"/><path d="M16 24 l5 5 11-12" stroke="#070b10" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="t">OT<b>Scope</b></div>
+  </header>
+  <div class="sub">Analizador pasivo de capturas de red industriales (OT/ICS) · <b>100% local</b>, tu captura nunca sale de esta máquina.</div>
+
+  <!-- Zona de carga -->
+  <div id="drop" class="drop">
+    <div class="ic">🛰️</div>
+    <h2>Soltá tu captura acá</h2>
+    <p>o hacé clic para elegir un archivo <b>.pcap</b> / <b>.pcapng</b></p>
+    <div class="badge">Análisis pasivo · no se envía nada a la red</div>
+    <input id="file" type="file" accept=".pcap,.pcapng,.cap" class="hidden">
+  </div>
+
+  <div id="loading" class="loading hidden"><div class="spin"></div>Analizando la captura…</div>
+  <div id="error" class="err hidden"></div>
+
+  <!-- Resultados -->
+  <div id="results" class="hidden">
+    <div class="meta">
+      <div>
+        <div class="fn" id="r-file"></div>
+        <div class="mi" id="r-meta"></div>
+      </div>
+      <div class="toolbar">
+        <button class="ghost" id="btn-json">Exportar JSON</button>
+        <button class="act" id="btn-html">Exportar informe</button>
+        <button class="ghost" id="btn-new">Analizar otra</button>
+      </div>
+    </div>
+
+    <div class="tiles" id="r-tiles"></div>
+    <div class="protos" id="r-protos"></div>
+
+    <h3 class="sec">Hallazgos</h3>
+    <div class="filters" id="r-filters"></div>
+    <div id="r-findings"></div>
+
+    <h3 class="sec">Dispositivos OT vistos</h3>
+    <table><thead><tr><th>IP</th><th>Protocolos</th><th>Paquetes</th></tr></thead>
+    <tbody id="r-hosts"></tbody></table>
+  </div>
+
+  <footer>OTScope · <b>UP Security</b> — @upseclab · análisis pasivo, sin garantías. Verificá los hallazgos antes de actuar.</footer>
+</div>
+
+<script>
+const SEVS=["critica","alta","media","baja","info"];
+const LABEL={critica:"CRÍTICA",alta:"ALTA",media:"MEDIA",baja:"BAJA",info:"INFO"};
+const $=id=>document.getElementById(id);
+let DATA=null, filter="todos";
+
+const drop=$("drop"), fileInput=$("file");
+drop.onclick=()=>fileInput.click();
+fileInput.onchange=e=>{ if(e.target.files[0]) analyze(e.target.files[0]); };
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f) analyze(f); });
+
+function show(el){ el.classList.remove("hidden"); }
+function hide(el){ el.classList.add("hidden"); }
+
+async function analyze(file){
+  hide(drop); hide($("results")); hide($("error")); show($("loading"));
+  try{
+    const res=await fetch("/api/analyze",{method:"POST",headers:{"X-Filename":file.name},body:file});
+    const data=await res.json();
+    if(!res.ok||data.error) throw new Error(data.error||"Error del servidor");
+    DATA=data; filter="todos"; render(data);
+  }catch(err){
+    hide($("loading")); show(drop);
+    const e=$("error"); e.textContent="⚠ "+err.message; show(e);
+  }
+}
+
+function render(d){
+  hide($("loading"));
+  $("r-file").textContent=d.archivo;
+  const r=d.resumen;
+  $("r-meta").textContent=`${r.paquetes} paquetes · ${r.paquetes_ot} de protocolos OT · ${r.hosts} hosts · generado ${d.generado.replace("T"," ")}`;
+
+  // tiles
+  const sc=r.por_severidad||{};
+  $("r-tiles").innerHTML=SEVS.filter(s=>s!=="info").map(s=>
+    `<div class="tile s-${s}"><div class="n">${sc[s]||0}</div><div class="l">${LABEL[s]}</div></div>`).join("");
+
+  // protocolos
+  $("r-protos").innerHTML=Object.entries(r.protocolos||{}).sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>`<span class="chip"><b>${k}</b> · ${v} pkts</span>`).join("");
+
+  // filtros
+  const counts={todos:d.hallazgos.length};
+  SEVS.forEach(s=>counts[s]=d.hallazgos.filter(f=>f.severidad===s).length);
+  $("r-filters").innerHTML=["todos",...SEVS].filter(s=>s==="todos"||counts[s]>0)
+    .map(s=>`<button data-f="${s}" class="${s===filter?"on":""}">${s==="todos"?"Todos":LABEL[s]} (${counts[s]})</button>`).join("");
+  $("r-filters").querySelectorAll("button").forEach(b=>b.onclick=()=>{filter=b.dataset.f;render(d);});
+
+  renderFindings(d.hallazgos);
+
+  $("r-hosts").innerHTML=d.dispositivos.map(h=>
+    `<tr><td class="ip">${h.ip}</td><td>${h.protocolos.join(", ")||"—"}</td><td>${h.paquetes}</td></tr>`).join("");
+
+  show($("results"));
+}
+
+function renderFindings(all){
+  const list=filter==="todos"?all:all.filter(f=>f.severidad===filter);
+  if(!list.length){ $("r-findings").innerHTML=`<p style="color:var(--dim)">Sin hallazgos para este filtro.</p>`; return; }
+  $("r-findings").innerHTML=list.map(f=>{
+    const conv=f.origen&&f.destino?`<span class="conv">${f.origen} → ${f.destino}</span>`:(f.origen?`<span class="conv">${f.origen}</span>`:"");
+    const cnt=f.ocurrencias>1?`<span class="cnt">×${f.ocurrencias}</span>`:"";
+    return `<div class="find s-${f.severidad}"><div class="top">
+      <span class="sev s-${f.severidad}">${LABEL[f.severidad]}</span>
+      <span class="proto">${f.protocolo}</span><span class="title">— ${f.titulo}</span>
+      ${conv}${cnt}</div>
+      ${f.detalle?`<div class="detail">${f.detalle}</div>`:""}
+      ${f.mitigacion?`<div class="fix"><div class="lbl">↳ Mitigación</div><div class="txt">${f.mitigacion}</div>
+        ${(f.referencias&&f.referencias.length)?`<div class="refs">${f.referencias.map(r=>`<span>${r}</span>`).join("")}</div>`:""}</div>`:""}
+      </div>`;
+  }).join("");
+}
+
+// ---- Exportar ----
+$("btn-new").onclick=()=>{ DATA=null; fileInput.value=""; hide($("results")); show(drop); };
+$("btn-json").onclick=()=>{ if(DATA) dl(JSON.stringify(DATA,null,2),"otscope-"+DATA.archivo+".json","application/json"); };
+$("btn-html").onclick=()=>{ if(DATA) dl(buildReport(DATA),"otscope-"+DATA.archivo+".html","text/html"); };
+
+function dl(content,name,type){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([content],{type}));
+  a.download=name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function buildReport(d){
+  const r=d.resumen, sc=r.por_severidad||{};
+  const col={critica:"#c0267e",alta:"#d13030",media:"#b7791a",baja:"#1a8a9a",info:"#64748b"};
+  const tiles=SEVS.filter(s=>s!=="info").map(s=>
+    `<td style="text-align:center;padding:14px;border:1px solid #ddd"><div style="font-size:26px;font-weight:800;color:${col[s]}">${sc[s]||0}</div><div style="font-size:11px;color:#666;text-transform:uppercase">${LABEL[s]}</div></td>`).join("");
+  const rows=d.hallazgos.map(f=>
+    `<tr><td style="padding:9px;border:1px solid #eee;color:#fff;background:${col[f.severidad]};font-weight:700;font-size:12px;white-space:nowrap">${LABEL[f.severidad]}</td>
+      <td style="padding:9px;border:1px solid #eee;font-weight:700">${f.protocolo}</td>
+      <td style="padding:9px;border:1px solid #eee">${f.titulo}${f.origen?`<br><code style="color:#555;font-size:12px">${f.origen}${f.destino?" → "+f.destino:""}</code>`:""}<div style="color:#555;font-size:13px;margin-top:4px">${f.detalle||""}</div>${f.mitigacion?`<div style="margin-top:7px;background:#f3faf8;border-left:3px solid #00c49a;padding:7px 10px;font-size:13px"><b style="color:#0a7">↳ Mitigación:</b> ${f.mitigacion}${(f.referencias&&f.referencias.length)?`<div style="color:#888;font-size:11px;margin-top:4px">${f.referencias.join(" · ")}</div>`:""}</div>`:""}</td></tr>`).join("");
+  const hosts=d.dispositivos.map(h=>`<tr><td style="padding:7px 10px;border:1px solid #eee"><code>${h.ip}</code></td><td style="padding:7px 10px;border:1px solid #eee">${h.protocolos.join(", ")||"—"}</td><td style="padding:7px 10px;border:1px solid #eee">${h.paquetes}</td></tr>`).join("");
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Informe OTScope — ${d.archivo}</title></head>
+  <body style="font-family:Segoe UI,Arial,sans-serif;max-width:900px;margin:30px auto;padding:0 20px;color:#1a1a1a">
+  <div style="border-bottom:3px solid #00c49a;padding-bottom:12px;margin-bottom:8px">
+    <h1 style="margin:0;font-size:24px">OTScope — Informe de análisis OT/ICS</h1>
+    <div style="color:#666;font-size:14px">UP Security · @upseclab</div></div>
+  <p style="color:#444"><b>Archivo:</b> ${d.archivo} &nbsp;·&nbsp; <b>Generado:</b> ${d.generado.replace("T"," ")}<br>
+  <b>${r.paquetes}</b> paquetes · <b>${r.paquetes_ot}</b> de protocolos OT · <b>${r.hosts}</b> hosts · protocolos: ${Object.keys(r.protocolos||{}).join(", ")||"—"}</p>
+  <table style="border-collapse:collapse;width:100%;margin:14px 0"><tr>${tiles}</tr></table>
+  <h2 style="font-size:17px;border-bottom:1px solid #ddd;padding-bottom:6px">Hallazgos (${d.hallazgos.length})</h2>
+  <table style="border-collapse:collapse;width:100%;font-size:14px">${rows||'<tr><td style="padding:10px">Sin hallazgos.</td></tr>'}</table>
+  <h2 style="font-size:17px;border-bottom:1px solid #ddd;padding-bottom:6px;margin-top:26px">Dispositivos OT vistos</h2>
+  <table style="border-collapse:collapse;width:100%;font-size:14px"><tr><th style="text-align:left;padding:7px 10px;border:1px solid #eee;background:#f5f5f5">IP</th><th style="text-align:left;padding:7px 10px;border:1px solid #eee;background:#f5f5f5">Protocolos</th><th style="text-align:left;padding:7px 10px;border:1px solid #eee;background:#f5f5f5">Paquetes</th></tr>${hosts}</table>
+  <p style="color:#999;font-size:12px;margin-top:30px;border-top:1px solid #eee;padding-top:10px">Generado por OTScope — análisis pasivo. Verificá los hallazgos antes de tomar acciones. Licencia MIT.</p>
+  </body></html>`;
+}
+</script>
+</body>
+</html>

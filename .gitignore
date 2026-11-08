@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Capturas de red (no subas pcaps reales al repo: pueden tener datos sensibles)
+*.pcap
+*.pcapng
+*.cap
+# …pero sí incluimos el pcap de ejemplo generado para las pruebas
+!samples/sample.pcap
+
+# Informes generados
+*.report.html
+otscope-*.html
+otscope-*.json
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
