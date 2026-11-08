@@ -213,6 +213,43 @@ ethernetip.inspect(ctx, einfo("10.0.0.20", "10.0.0.5", eip_frame(b"\x05\x02\x20\
 check("EIP respuesta se ignora", len(ctx.findings) == 0)
 
 
+# =================== Baseline ===================
+from otscope import baseline as bl
+from otscope.core import Finding as _F
+
+# baseline "sano": una escritura legítima de ENG->PLC
+ctxb = Context()
+ctxb.seen_host("10.0.0.5", "Modbus"); ctxb.seen_host("10.0.0.10", "Modbus")
+ctxb.seen_conversation("10.0.0.5", "10.0.0.10", 502, "Modbus")
+ctxb.add_finding(_F("alta", "Modbus", "Comando de escritura a un dispositivo", "x",
+                    src="10.0.0.5", dst="10.0.0.10"))
+prof = bl.build(ctxb)
+check("baseline.build registra hosts", "10.0.0.5" in prof["hosts"])
+check("baseline.build registra comportamientos",
+      ["Modbus", "Comando de escritura a un dispositivo", "10.0.0.5", "10.0.0.10"] in prof["comportamientos"])
+
+# captura nueva: misma escritura (conocida) + OPERATE anómalo desde host nuevo
+ctxn = Context()
+ctxn.seen_host("10.0.0.5", "Modbus"); ctxn.seen_host("10.0.0.10", "Modbus")
+ctxn.seen_host("10.0.0.99", "DNP3")
+ctxn.add_finding(_F("alta", "Modbus", "Comando de escritura a un dispositivo", "x",
+                    src="10.0.0.5", dst="10.0.0.10"))
+ctxn.add_finding(_F("critica", "DNP3", "Control de salida física (OPERATE)", "x",
+                    src="10.0.0.99", dst="10.0.0.11"))
+bl.apply(ctxn, prof)
+_w = ctxn.findings[("Modbus", "Comando de escritura a un dispositivo", "10.0.0.5", "10.0.0.10")]
+check("baseline: comportamiento conocido baja a info", _w.baseline == "conocido" and _w.sev == "info")
+_op = ctxn.findings[("DNP3", "Control de salida física (OPERATE)", "10.0.0.99", "10.0.0.11")]
+check("baseline: comportamiento nuevo marcado anómalo", _op.baseline == "anomalo" and _op.sev == "critica")
+check("baseline: dispositivo nuevo detectado", has(ctxn, title_contains="Dispositivo OT nuevo"))
+
+# save/load roundtrip
+import tempfile as _tf
+_f = _tf.NamedTemporaryFile(suffix=".json", delete=False); _f.close()
+bl.save(prof, _f.name); _prof2 = bl.load(_f.name); os.unlink(_f.name)
+check("baseline save/load roundtrip", _prof2["comportamientos"] == prof["comportamientos"])
+
+
 # =================== Advice / mitigaciones ===================
 from otscope.advice import advise, TITLE_CAT, ADVICE
 

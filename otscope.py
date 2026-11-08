@@ -32,6 +32,10 @@ def main(argv=None):
         description="Analizador pasivo de seguridad para capturas de red OT/ICS.")
     ap.add_argument("pcap", help="archivo de captura .pcap o .pcapng")
     ap.add_argument("--json", metavar="ARCHIVO", help="escribe el informe en JSON")
+    ap.add_argument("--learn", metavar="BASELINE.json",
+                    help="aprende el baseline de esta captura (red SANA) y lo guarda")
+    ap.add_argument("--baseline", metavar="BASELINE.json",
+                    help="compara contra un baseline: resalta solo lo anómalo")
     ap.add_argument("--no-color", action="store_true", help="salida sin color")
     ap.add_argument("--quiet", action="store_true", help="no imprime el informe en terminal")
     args = ap.parse_args(argv)
@@ -41,6 +45,24 @@ def main(argv=None):
         return 2
 
     ctx = analyze(args.pcap, build_registry())
+
+    # Modo aprendizaje: generar el baseline y salir.
+    if args.learn:
+        from otscope import baseline as bl
+        prof = bl.build(ctx)
+        bl.save(prof, args.learn)
+        print(f"[+] Baseline aprendido de {args.pcap}: "
+              f"{len(prof['hosts'])} hosts, {len(prof['comportamientos'])} comportamientos.")
+        print(f"[+] Guardado en {args.learn}")
+        return 0
+
+    # Modo comparación: anotar hallazgos contra el baseline.
+    if args.baseline:
+        if not os.path.isfile(args.baseline):
+            sys.stderr.write(f"No se encontró el baseline: {args.baseline}\n")
+            return 2
+        from otscope import baseline as bl
+        bl.apply(ctx, bl.load(args.baseline))
 
     color = not args.no_color and sys.stdout.isatty()
     if not args.quiet:

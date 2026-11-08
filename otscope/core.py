@@ -10,7 +10,7 @@ SEV_WEIGHT = {"critica": 4, "alta": 3, "media": 2, "baja": 1, "info": 0}
 
 
 class Finding:
-    __slots__ = ("sev", "proto", "title", "detail", "src", "dst", "count")
+    __slots__ = ("sev", "proto", "title", "detail", "src", "dst", "count", "baseline")
 
     def __init__(self, sev, proto, title, detail="", src=None, dst=None, count=1):
         self.sev = sev
@@ -20,15 +20,20 @@ class Finding:
         self.src = src
         self.dst = dst
         self.count = count
+        # estado respecto del baseline: None (sin baseline), "conocido" o "anomalo"
+        self.baseline = None
 
     def key(self):
         # para agrupar hallazgos repetidos (misma regla + mismo par origen/destino)
         return (self.proto, self.title, self.src, self.dst)
 
     def to_dict(self):
-        return {"severidad": self.sev, "protocolo": self.proto, "titulo": self.title,
-                "detalle": self.detail, "origen": self.src, "destino": self.dst,
-                "ocurrencias": self.count}
+        d = {"severidad": self.sev, "protocolo": self.proto, "titulo": self.title,
+             "detalle": self.detail, "origen": self.src, "destino": self.dst,
+             "ocurrencias": self.count}
+        if self.baseline:
+            d["baseline"] = self.baseline
+        return d
 
 
 class Context:
@@ -41,6 +46,7 @@ class Context:
         self.packets = 0
         self.ot_packets = 0
         self.scratch = {}           # espacio de estado para los dissectors
+        self.baseline = None        # metadatos del baseline comparado (si hubo)
 
     def add_finding(self, f):
         existing = self.findings.get(f.key())

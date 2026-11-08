@@ -34,6 +34,13 @@ def terminal(ctx, path, color=True):
     if ctx.protocols:
         prot = ", ".join(f"{k} ({v})" for k, v in sorted(ctx.protocols.items(), key=lambda x: -x[1]))
         out.append(f"{c['dim']}Protocolos: {prot}{c['x']}")
+    if ctx.baseline:
+        b = ctx.baseline
+        out.append(f"{c['b']}Comparado contra baseline{c['x']} {c['dim']}"
+                   f"({b['hosts_baseline']} hosts, {b['comportamientos_baseline']} comportamientos conocidos){c['x']}")
+        out.append(f"  {c['alta']}{b['anomalias']} anomalías{c['x']}{c['dim']} · "
+                   f"{b['conocidos']} comportamientos esperados · "
+                   f"{b['dispositivos_nuevos']} dispositivos nuevos{c['x']}")
     out.append("")
 
     findings = sorted(ctx.findings.values(),
@@ -50,7 +57,12 @@ def terminal(ctx, path, color=True):
             elif f.src:
                 conv = f"  {c['dim']}{f.src}{c['x']}"
             rep = f"  {c['dim']}×{f.count}{c['x']}" if f.count > 1 else ""
-            out.append(f"  [{badge}] {c['b']}{f.proto}{c['x']} — {f.title}{conv}{rep}")
+            tag = ""
+            if f.baseline == "anomalo":
+                tag = f"{c['alta']}⚠ ANOMALÍA{c['x']} "
+            elif f.baseline == "conocido":
+                tag = f"{c['dim']}✓ baseline{c['x']} "
+            out.append(f"  [{badge}] {tag}{c['b']}{f.proto}{c['x']} — {f.title}{conv}{rep}")
             if f.detail:
                 out.append(f"            {c['dim']}{f.detail}{c['x']}")
             adv = advise(f.title)
@@ -94,6 +106,7 @@ def to_payload(ctx, path):
             {"ip": ip, "protocolos": sorted(h["protos"]), "paquetes": h["pkts"]}
             for ip, h in sorted(ctx.hosts.items(), key=lambda x: -x[1]["pkts"])
         ],
+        "baseline": ctx.baseline,
         "hallazgos": [_finding_dict(f) for f in findings],
     }
 

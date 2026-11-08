@@ -116,3 +116,17 @@ pkts.append(Ether() / IP(src=ENG, dst=PLC) / TCP(sport=50020, dport=80, flags="P
 out = os.path.join(HERE, "sample.pcap")
 wrpcap(out, pkts)
 print(f"[ok] {out} — {len(pkts)} paquetes")
+
+# --- Captura "sana" para el baseline: SOLO tráfico legítimo de las estaciones
+#     autorizadas (sin atacantes, sin comandos sospechosos). ---
+normal = []
+normal.append(mb_pkt(ENG, PLC, 1, b"\x03\x00\x00\x00\x0a"))          # lectura legítima
+normal.append(mb_pkt(ENG, PLC, 1, b"\x06\x00\x01\x00\x7b"))          # escritura de la estación de ingeniería
+normal.append(dnp_pkt(DMASTER, 1))                                    # DNP3: READ del maestro legítimo
+normal.append(s7_pkt(S7ENG, 0xf0))                                    # S7: setup
+normal.append(s7_pkt(S7ENG, 0x04))                                    # S7: Read Var legítimo
+normal.append(eip_pkt(EIPENG, b"\x4c\x02\x20\x01\x24\x01"))          # EtherNet/IP: Read Tag legítimo
+
+out_b = os.path.join(HERE, "sample_baseline.pcap")
+wrpcap(out_b, normal)
+print(f"[ok] {out_b} — {len(normal)} paquetes (tráfico sano para --learn)")

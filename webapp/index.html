@@ -31,6 +31,20 @@
     border:1px solid #16463c;background:#0b211c;border-radius:999px;padding:5px 14px;font-weight:700}
 
   .hidden{display:none!important}
+
+  .blbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:14px}
+  .blbar .st{font-size:14px;color:var(--dim)} .blbar .st b{color:var(--tx)}
+  .blbar .st b.on{color:var(--teal)}
+  button.small{font-size:13px;padding:7px 12px}
+  .blbar .sp{margin-left:auto}
+  .blbanner{background:#0c1b17;border:1px solid #17463a;border-radius:12px;padding:14px 18px;margin:16px 0}
+  .blbanner .big{font-size:22px;font-weight:900;color:var(--teal)}
+  .blbanner .big b{color:var(--alta)}
+  .blbanner .sub{color:var(--dim);font-size:13.5px;margin-top:4px}
+  .bl-anom{font-size:11px;font-weight:900;letter-spacing:.3px;padding:3px 9px;border-radius:6px;
+    background:#3a1515;color:var(--alta);border:1px solid #5b1e22}
+  .bl-known{font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px;background:#15241d;color:var(--teal);border:1px solid #1d4a3b}
   .loading{text-align:center;padding:60px 0;color:var(--dim)}
   .spin{width:42px;height:42px;border:4px solid #1e2a38;border-top-color:var(--teal);
     border-radius:50%;margin:0 auto 18px;animation:sp 1s linear infinite}
@@ -104,6 +118,16 @@
   </header>
   <div class="sub">Analizador pasivo de capturas de red industriales (OT/ICS) · <b>100% local</b>, tu captura nunca sale de esta máquina.</div>
 
+  <!-- Barra de baseline -->
+  <div class="blbar">
+    <span class="st">🎯 Baseline: <b id="bl-st">ninguno</b></span>
+    <span class="st" style="font-size:12.5px">— cargá una captura de tráfico <i>sano</i> y OTScope resaltará solo lo anómalo</span>
+    <span class="sp"></span>
+    <button class="ghost small" id="bl-set">Definir baseline</button>
+    <button class="ghost small hidden" id="bl-clear">Quitar</button>
+    <input id="blfile" type="file" accept=".pcap,.pcapng,.cap" class="hidden">
+  </div>
+
   <!-- Zona de carga -->
   <div id="drop" class="drop">
     <div class="ic">🛰️</div>
@@ -130,6 +154,7 @@
       </div>
     </div>
 
+    <div id="r-blbanner"></div>
     <div class="tiles" id="r-tiles"></div>
     <div class="protos" id="r-protos"></div>
 
@@ -162,6 +187,7 @@ function show(el){ el.classList.remove("hidden"); }
 function hide(el){ el.classList.add("hidden"); }
 
 async function analyze(file){
+  LASTFILE=file;
   hide(drop); hide($("results")); hide($("error")); show($("loading"));
   try{
     const res=await fetch("/api/analyze",{method:"POST",headers:{"X-Filename":file.name},body:file});
@@ -179,6 +205,14 @@ function render(d){
   $("r-file").textContent=d.archivo;
   const r=d.resumen;
   $("r-meta").textContent=`${r.paquetes} paquetes · ${r.paquetes_ot} de protocolos OT · ${r.hosts} hosts · generado ${d.generado.replace("T"," ")}`;
+
+  // banner de baseline
+  const bb=$("r-blbanner");
+  if(d.baseline){
+    bb.innerHTML=`<div class="blbanner"><div class="big"><b>${d.baseline.anomalias}</b> anomalías detectadas</div>
+      <div class="sub">Comparado contra un baseline de ${d.baseline.hosts_baseline} hosts y ${d.baseline.comportamientos_baseline} comportamientos conocidos ·
+      ${d.baseline.conocidos} comportamientos esperados (bajados a informativo) · ${d.baseline.dispositivos_nuevos} dispositivos nuevos</div></div>`;
+  } else bb.innerHTML="";
 
   // tiles
   const sc=r.por_severidad||{};
@@ -210,8 +244,10 @@ function renderFindings(all){
   $("r-findings").innerHTML=list.map(f=>{
     const conv=f.origen&&f.destino?`<span class="conv">${f.origen} → ${f.destino}</span>`:(f.origen?`<span class="conv">${f.origen}</span>`:"");
     const cnt=f.ocurrencias>1?`<span class="cnt">×${f.ocurrencias}</span>`:"";
+    const blb = f.baseline==="anomalo" ? `<span class="bl-anom">⚠ ANOMALÍA</span>`
+              : f.baseline==="conocido" ? `<span class="bl-known">✓ baseline</span>` : "";
     return `<div class="find s-${f.severidad}"><div class="top">
-      <span class="sev s-${f.severidad}">${LABEL[f.severidad]}</span>
+      <span class="sev s-${f.severidad}">${LABEL[f.severidad]}</span>${blb}
       <span class="proto">${f.protocolo}</span><span class="title">— ${f.titulo}</span>
       ${conv}${cnt}</div>
       ${f.detalle?`<div class="detail">${f.detalle}</div>`:""}
@@ -220,6 +256,30 @@ function renderFindings(all){
       </div>`;
   }).join("");
 }
+
+// ---- Baseline ----
+const blSet=$("bl-set"), blClear=$("bl-clear"), blFile=$("blfile"), blSt=$("bl-st");
+blSet.onclick=()=>blFile.click();
+blFile.onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  blSt.textContent="aprendiendo…";
+  try{
+    const res=await fetch("/api/learn",{method:"POST",headers:{"X-Filename":f.name},body:f});
+    const d=await res.json();
+    if(!res.ok||d.error) throw new Error(d.error||"error");
+    blSt.innerHTML=`<b class="on">${d.archivo}</b> (${d.comportamientos} comportamientos, ${d.hosts} hosts)`;
+    blClear.classList.remove("hidden");
+    if(DATA) analyzeAgain();   // re-evaluar lo ya cargado contra el nuevo baseline
+  }catch(err){ blSt.textContent="error al aprender"; }
+  blFile.value="";
+};
+blClear.onclick=async()=>{
+  await fetch("/api/baseline/clear",{method:"POST"});
+  blSt.textContent="ninguno"; blClear.classList.add("hidden");
+  if(DATA) analyzeAgain();
+};
+let LASTFILE=null;
+function analyzeAgain(){ if(LASTFILE) analyze(LASTFILE); }
 
 // ---- Exportar ----
 $("btn-new").onclick=()=>{ DATA=null; fileInput.value=""; hide($("results")); show(drop); };

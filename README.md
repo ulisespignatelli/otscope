@@ -101,6 +101,32 @@ python3 otscope.py ICS-Security-Tools/pcaps/openics/EIP-RebootorRestart.pcap
 > ⚠️ Son capturas de **laboratorio**, para práctica. Para analizar una red real
 > necesitás **autorización por escrito** del dueño de esa red.
 
+### Baseline: detectar solo lo anómalo
+
+En una red SCADA real los comandos de control son normales (el maestro opera las
+RTUs todo el día). Para separar la señal del ruido, OTScope puede **aprender el
+comportamiento normal** de una red sana y después marcar solo lo que se desvía:
+
+```bash
+# 1) aprender el baseline de una captura de tráfico SANO
+python3 otscope.py dia_normal.pcap --learn baseline.json
+
+# 2) analizar una captura nueva comparando contra ese baseline
+python3 otscope.py captura.pcap --baseline baseline.json
+```
+
+Con el baseline activo, cada hallazgo se reclasifica:
+- **conocido** (ya estaba en el baseline) → se baja a informativo.
+- **⚠ anómalo** (no estaba) → se resalta; es lo que hay que mirar.
+- **dispositivo nuevo** → un equipo OT que no aparecía en el baseline.
+
+Así, una escritura legítima de la estación de ingeniería deja de ser una alerta,
+mientras que el mismo comando desde un host desconocido salta como anomalía. En el
+dashboard web hay un botón **"Definir baseline"** que hace lo mismo de forma visual.
+
+> El baseline debe generarse de una red que se **sabe sana**. Si se aprende de una
+> captura que ya tiene un ataque, se aprendería el ataque como "normal".
+
 ### Códigos de salida
 | Código | Significado |
 |---|---|
@@ -118,6 +144,7 @@ otscope/
 │   ├── core.py             # lectura de pcap, inventario, reglas globales
 │   ├── report.py           # salida terminal / JSON
 │   ├── advice.py           # mitigaciones + mapeo a estándares (IEC 62443 / NIST)
+│   ├── baseline.py         # aprendizaje y comparación de baseline (anomalías)
 │   └── protocols/
 │       ├── __init__.py     # registro puerto -> dissector
 │       ├── modbus.py       # disección profunda de Modbus/TCP

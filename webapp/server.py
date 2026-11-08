@@ -22,6 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from otscope import analyze, build_registry, report  # noqa: E402
+from otscope import baseline as bl  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INDEX = os.path.join(HERE, "index.html")
@@ -55,7 +56,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "No encontrado", "text/plain; charset=utf-8")
 
     def do_POST(self):
-        if self.path != "/api/analyze":
+        if self.path == "/api/baseline/clear":
+            self.server.current_baseline = None
+            self._send(200, json.dumps({"ok": True}))
+            return
+        if self.path not in ("/api/analyze", "/api/learn"):
             self._send(404, json.dumps({"error": "ruta desconocida"}))
             return
         try:
@@ -76,6 +81,21 @@ class Handler(BaseHTTPRequestHandler):
             tmp.write(data)
             tmp.close()
             ctx = analyze(tmp.name, build_registry())
+
+            if self.path == "/api/learn":
+                # aprender el baseline y guardarlo en memoria del servidor
+                prof = bl.build(ctx)
+                self.server.current_baseline = prof
+                self._send(200, json.dumps({
+                    "ok": True, "archivo": os.path.basename(fname),
+                    "hosts": len(prof["hosts"]),
+                    "comportamientos": len(prof["comportamientos"]),
+                }))
+                return
+
+            # analizar; si hay un baseline cargado, comparar contra él
+            if self.server.current_baseline:
+                bl.apply(ctx, self.server.current_baseline)
             payload = report.to_payload(ctx, os.path.basename(fname))
             self._send(200, json.dumps(payload, ensure_ascii=False))
         except Exception as e:  # el motor no debe tumbar el servidor
@@ -100,6 +120,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
+    httpd.current_baseline = None   # baseline en memoria (herramienta local, un usuario)
     url = f"http://{args.host}:{args.port}"
     print(f"OTScope web → {url}")
     print("  Análisis 100% local. Ctrl+C para salir.\n")

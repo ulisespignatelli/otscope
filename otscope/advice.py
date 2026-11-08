@@ -74,6 +74,16 @@ ADVICE = {
                "verificá que el origen sea esperado.",
         "refs": [],
     },
+    "baseline_new_device": {
+        "fix": "Verificá en el inventario de activos si este equipo está autorizado. "
+               "Si no lo reconocés, aislalo y analizá qué está haciendo en la red OT.",
+        "refs": ["IEC 62443-3-3 SR 1.1 / SR 2.1", "NIST SP 800-82r3 — gestión de activos"],
+    },
+    "baseline_new_conv": {
+        "fix": "Una comunicación no vista antes puede ser un cambio legítimo (equipo nuevo) "
+               "o actividad no autorizada. Confirmá con el responsable de la red OT.",
+        "refs": ["IEC 62443-3-3 SR 6.2 (Continuous monitoring)", "NIST SP 800-82r3"],
+    },
 }
 
 # título del hallazgo -> categoría
