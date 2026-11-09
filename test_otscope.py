@@ -213,6 +213,59 @@ ethernetip.inspect(ctx, einfo("10.0.0.20", "10.0.0.5", eip_frame(b"\x05\x02\x20\
 check("EIP respuesta se ignora", len(ctx.findings) == 0)
 
 
+# =================== IEC 60870-5-104 ===================
+from otscope.protocols import iec104
+
+
+def i104_frame(type_id, extra=b"", cot=6, ca=1, ioa=1):
+    asdu = bytes([type_id, 0x01, cot & 0x3f, 0x00]) + struct.pack("<H", ca) + struct.pack("<I", ioa)[:3] + extra
+    length = 4 + len(asdu)
+    return bytes([0x68, length, 0x00, 0x00, 0x00, 0x00]) + asdu
+
+
+def i104info(src, dst, payload, to_service=True):
+    return {"src": src, "dst": dst, "sport": 5000, "dport": 2404, "svc_port": 2404,
+            "transport": "tcp", "payload": payload, "to_service": to_service}
+
+
+# Single command (control de interruptor) -> CRÍTICA
+ctx = Context()
+iec104.inspect(ctx, i104info("10.0.0.5", "10.0.0.14", i104_frame(45, b"\x01")))
+check("IEC104 Single command => CRÍTICA", has(ctx, "critica", "interruptor"))
+
+# Reset process -> CRÍTICA
+ctx = Context()
+iec104.inspect(ctx, i104info("10.0.0.5", "10.0.0.14", i104_frame(105, b"\x00")))
+check("IEC104 Reset process => CRÍTICA", has(ctx, "critica", "Reset"))
+
+# Set-point -> ALTA
+ctx = Context()
+iec104.inspect(ctx, i104info("10.0.0.5", "10.0.0.14", i104_frame(48, b"\x00\x00\x01")))
+check("IEC104 Set-point => ALTA", has(ctx, "alta", "set-point"))
+
+# Interrogación -> MEDIA (recon)
+ctx = Context()
+iec104.inspect(ctx, i104info("10.0.0.5", "10.0.0.14", i104_frame(100, b"\x14")))
+check("IEC104 interrogación => MEDIA", has(ctx, "media", "Reconocimiento"))
+
+# Telemetría de monitoreo (type 1, respuesta del campo) no marca comando
+ctx = Context()
+iec104.inspect(ctx, i104info("10.0.0.14", "10.0.0.5", i104_frame(1), to_service=False))
+check("IEC104 respuesta/monitoreo se ignora", len(ctx.findings) == 0)
+
+# payload no-IEC104 no rompe
+ctx = Context()
+iec104.inspect(ctx, i104info("10.0.0.5", "10.0.0.14", b"\x00\x01\x02\x03"))
+check("IEC104 payload inválido no genera hallazgos", len(ctx.findings) == 0)
+
+# barrido de estaciones -> MEDIA
+ctx = Context()
+for ca in range(1, 9):
+    iec104.inspect(ctx, i104info("10.0.0.7", "10.0.0.14", i104_frame(100, b"\x14", ca=ca)))
+iec104.finalize(ctx)
+check("IEC104 barrido de estaciones => enumeración", has(ctx, "media", "Barrido"))
+
+
 # =================== Baseline ===================
 from otscope import baseline as bl
 from otscope.core import Finding as _F

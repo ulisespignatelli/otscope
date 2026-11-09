@@ -110,6 +110,28 @@ pkts.append(eip_pkt(EIPATK, b"\x4d\x02\x20\x01\x24\x01", sport=53001)) # Write T
 pkts.append(eip_pkt(EIPATK, b"\x05\x02\x20\x01\x24\x01", sport=53001)) # Reset -> CRÍTICA
 pkts.append(eip_pkt(EIPATK, b"\x07\x02\x20\x01\x24\x01", sport=53001)) # Stop -> CRÍTICA
 
+# --- IEC 60870-5-104 (puerto 2404) — telecontrol eléctrico ---
+RTU104 = "192.168.10.14"       # estación / RTU IEC-104
+MASTER104 = "192.168.10.63"    # maestro SCADA legítimo
+ATK104 = "192.168.10.94"       # host sospechoso
+
+
+def iec104(type_id, extra=b"", cot=6, ca=1, ioa=1):
+    # ASDU: typeid, VSQ(1 obj), COT(2), dir común(2 LE), IOA(3) + info
+    asdu = bytes([type_id, 0x01, cot & 0x3f, 0x00]) + struct.pack("<H", ca) + struct.pack("<I", ioa)[:3] + extra
+    length = 4 + len(asdu)          # 4 octetos de control I-format + ASDU
+    return bytes([0x68, length, 0x00, 0x00, 0x00, 0x00]) + asdu
+
+
+def i104_pkt(src, type_id, extra=b"", sport=54000, ca=1):
+    return Ether() / IP(src=src, dst=RTU104) / TCP(sport=sport, dport=2404, flags="PA") / Raw(iec104(type_id, extra, ca=ca))
+
+
+pkts.append(i104_pkt(MASTER104, 100, b"\x14"))                 # interrogación (recon, maestro)
+pkts.append(i104_pkt(ATK104, 45, b"\x01", sport=54001))        # Single command -> CRÍTICA
+pkts.append(i104_pkt(ATK104, 105, b"\x00", sport=54001))       # Reset process -> CRÍTICA
+pkts.append(i104_pkt(ATK104, 48, b"\x00\x00\x01", sport=54001))# Set-point -> ALTA
+
 # Tráfico web normal -> debe ser ignorado
 pkts.append(Ether() / IP(src=ENG, dst=PLC) / TCP(sport=50020, dport=80, flags="PA") / Raw(b"GET / HTTP/1.1\r\n"))
 
@@ -126,6 +148,7 @@ normal.append(dnp_pkt(DMASTER, 1))                                    # DNP3: RE
 normal.append(s7_pkt(S7ENG, 0xf0))                                    # S7: setup
 normal.append(s7_pkt(S7ENG, 0x04))                                    # S7: Read Var legítimo
 normal.append(eip_pkt(EIPENG, b"\x4c\x02\x20\x01\x24\x01"))          # EtherNet/IP: Read Tag legítimo
+normal.append(i104_pkt(MASTER104, 100, b"\x14"))                     # IEC-104: interrogación del maestro
 
 out_b = os.path.join(HERE, "sample_baseline.pcap")
 wrpcap(out_b, normal)

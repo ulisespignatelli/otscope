@@ -5,10 +5,10 @@ Para sumar un protocolo nuevo con disección profunda:
      (opcional) finalize(ctx).
   2. Importalo acá y registrá sus puertos en build_registry().
 """
-from . import modbus, dnp3, s7comm, ethernetip, generic
+from . import modbus, dnp3, s7comm, ethernetip, iec104, generic
 
 # Módulos con disección profunda. Para sumar uno nuevo, agregalo a esta lista.
-DEEP = [modbus, dnp3, s7comm, ethernetip]
+DEEP = [modbus, dnp3, s7comm, ethernetip, iec104]
 
 
 def build_registry():

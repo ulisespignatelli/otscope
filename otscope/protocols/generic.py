@@ -28,7 +28,6 @@ CATALOG = [
     # Modbus (502), DNP3 (20000), S7comm (102) y EtherNet/IP (44818) tienen
     # disección profunda propia (ver módulos dedicados).
     ("BACnet", [47808], "Automatización de edificios (HVAC, accesos)."),
-    ("IEC 60870-5-104", [2404], "Telecontrol en redes eléctricas."),
     ("OPC UA", [4840], "Interoperabilidad industrial."),
     ("MQTT", [1883], "IoT/IIoT; revisá si tiene autenticación."),
 ]

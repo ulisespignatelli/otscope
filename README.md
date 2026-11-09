@@ -44,12 +44,18 @@ El tráfico OT es un mundo aparte: protocolos como Modbus o DNP3 **no tienen aut
 - **Get_Attributes_All/List** (reconocimiento) y **ListIdentity/ListServices** (descubrimiento) → **MEDIA**
 - Entra en los **Multiple Service Packet**, donde suelen esconderse los comandos.
 
+**IEC 60870-5-104** (telecontrol eléctrico — distribuidoras)
+- **Comandos a interruptores** (Single/Double command) — abren o cierran equipos físicos → **CRÍTICA**
+- **Reset de la estación** (C_RP) — reinicia la RTU de telecontrol → **CRÍTICA**
+- **Cambios de set-point** (C_SE) — modifican consignas del proceso → **ALTA**
+- **Interrogación / barrido de estaciones** (recon), **sincronización de reloj**, **STOPDT** → **MEDIA**
+
 **Reglas globales (cualquier protocolo OT)**
 - **Texto plano** (todos lo son por diseño) → **MEDIA**
 - **Tráfico OT con direcciones públicas** (exposición a internet) → **CRÍTICA**
 - **Inventario** de dispositivos y protocolos vistos en la red.
 
-Disección profunda: **Modbus, DNP3, S7comm, EtherNet/IP**. Detección por puerto: **BACnet, IEC 60870-5-104, OPC UA, MQTT**.
+Disección profunda: **Modbus, DNP3, S7comm, EtherNet/IP, IEC-104**. Detección por puerto: **BACnet, OPC UA, MQTT**.
 
 ## Uso
 
@@ -151,6 +157,7 @@ otscope/
 │       ├── dnp3.py         # disección profunda de DNP3
 │       ├── s7comm.py       # disección profunda de S7comm (Siemens)
 │       ├── ethernetip.py   # disección profunda de EtherNet/IP (CIP)
+│       ├── iec104.py       # disección profunda de IEC 60870-5-104
 │       └── generic.py      # detección por puerto del resto
 ├── webapp/
 │   ├── server.py           # servidor web local (stdlib, sin deps extra)
@@ -161,7 +168,7 @@ otscope/
 
 ## 🤝 Contribuir
 
-Este proyecto está pensado para crecer **con la comunidad**. La forma más útil de aportar es sumar **disección profunda de un protocolo** (IEC 60870-5-104, BACnet, OPC UA…): hoy se detectan por puerto, pero falta analizar sus comandos como ya se hace con Modbus, DNP3, S7comm y EtherNet/IP.
+Este proyecto está pensado para crecer **con la comunidad**. La forma más útil de aportar es sumar **disección profunda de un protocolo** (BACnet, OPC UA, MQTT…): hoy se detectan por puerto, pero falta analizar sus comandos como ya se hace con Modbus, DNP3, S7comm, EtherNet/IP e IEC-104.
 
 1. Copiá la estructura de `otscope/protocols/modbus.py` (un módulo con `NAME`, `PORTS`, `inspect(ctx, info)` y opcional `finalize(ctx)`).
 2. Registralo en `otscope/protocols/__init__.py`.

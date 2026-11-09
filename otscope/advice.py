@@ -115,9 +115,19 @@ TITLE_CAT = {
     "Arranque de la CPU (CIP Start)": "device_control",
     "Escritura en el dispositivo": "write",
     "Descubrimiento de dispositivos": "recon",
+    # IEC 60870-5-104
+    "Comando de control a un interruptor": "physical_control",
+    "Reset de la estación (C_RP)": "device_control",
+    "Cambio de set-point": "write",
+    "Sincronización de reloj (C_CS)": "device_control",
+    "Reconocimiento (interrogación)": "recon",
+    "Barrido de estaciones (reconocimiento)": "recon",
+    "Se detiene la transferencia de datos (STOPDT)": "blind_monitoring",
     # Reglas globales
     "Protocolo OT sin cifrado": "plaintext",
     "Tráfico OT con una dirección pública": "internet_exposure",
+    # Baseline
+    "Dispositivo OT nuevo (no está en el baseline)": "baseline_new_device",
 }
 
 
